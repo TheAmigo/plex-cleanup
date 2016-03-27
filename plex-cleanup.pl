@@ -24,7 +24,7 @@
 # Future ideas:
 #  - A configurable file name mapping for when this script runs on a host other
 #      than the PMS and the absolute path to files isn't the same.
-#  - Additional selection criteria (e.g. duration)
+#  - Additional selection criteria (e.g. duration?)
 #  - Default config options that would apply to all listed libraries that don't
 #      otherwise specify.
 #  - Test on platforms other than linux.
@@ -34,6 +34,7 @@ use AnyEvent;
 use AnyEvent::HTTP;
 use XML::LibXML;
 use Getopt::Long;
+use Carp;
 use POSIX qw/strftime/;
 
 $|=1;
@@ -389,6 +390,12 @@ sub getNodes {
 	my $wait = AE::cv;
 	http_get "$BASE/$url", sub {
 		my ($body, $headers) = @_;
+		if ($headers->{Status} !~ /^2/) {
+			# Want to exit this function, but not just yet
+			AE::postpone {$wait->send};
+			# Show a stack trace
+			confess "ERROR: status $headers->{Status} trying to download: $BASE/$url";
+		}
 		my $doc = XML::LibXML->load_xml(string => $body);
 		my $xpc = XML::LibXML::XPathContext->new($doc);
 		@nodes = $xpc->findnodes($path);
